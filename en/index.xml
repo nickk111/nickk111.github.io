@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+    <channel>
+        <title>DYS&#39;Notes</title>
+        <link>https://nickk111.github.io/en/</link>
+        <description>Recent content on DYS&#39;Notes</description>
+        <generator>Hugo -- gohugo.io</generator>
+        <language>en</language>
+        <copyright>但月森-DYS</copyright><atom:link href="https://nickk111.github.io/en/index.xml" rel="self" type="application/rss+xml" />
+    </channel>
+</rss>
