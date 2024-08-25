@@ -7,7 +7,15 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>zh-cn</language>
         <copyright>但月森-DYS</copyright>
-        <lastBuildDate>Sat, 24 Aug 2024 16:04:14 +0800</lastBuildDate><atom:link href="https://nickk111.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sun, 25 Aug 2024 11:05:09 +0800</lastBuildDate><atom:link href="https://nickk111.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Second</title>
+        <link>https://nickk111.github.io/p/second/</link>
+        <pubDate>Sun, 25 Aug 2024 11:05:09 +0800</pubDate>
+        
+        <guid>https://nickk111.github.io/p/second/</guid>
+        <description></description>
+        </item>
+        <item>
         <title>MyFirstBlog</title>
         <link>https://nickk111.github.io/p/myfirstblog/</link>
         <pubDate>Sat, 24 Aug 2024 16:04:14 +0800</pubDate>
