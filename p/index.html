@@ -1,0 +1,1685 @@
+<!DOCTYPE html>
+<html lang="zh-cn" dir="ltr">
+    <head><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="YOLOv11改进 | Conv/卷积篇 | 利用2024最新YOLOv9的GELAN模块替换C3k2结构（附轻量化版本 + 高效涨点版本 + 结构图 一、本文介绍 本文给大家带来的改进机制是利用2024/02/21号发布的 YOLOv9其中提出的GELAN模块来改进YOLOv11中的C3k2 ，GELAN融合了CSPNet和ELAN机制同时其中利用到了RepConv在获取更多有效特征的同时在推理时专用单分支结构从而不影响推理速度，同时本文的内容提供了两种版本一种是参数量更低涨点效果略微弱一些的版本，另一种是参数量稍多一些但是效果要不参数量低的效果要好一些（均为我个人整理），提供两种版本是为了适配不同需求的读者，具体选择那种大家可以根据自身的需求来选择即可，文章中我都均已提供， 同时本文的结构存在大量的二次创新机会，后面我也会提供。\n">
+<title></title>
+
+<link rel='canonical' href='https://nickk111.github.io/p/'>
+
+<link rel="stylesheet" href="/scss/style.min.0304c6baf04e01a8fe70693791cb744d56a3578a3120a8796cefc66825aa39c7.css"><meta property='og:title' content="">
+<meta property='og:description' content="YOLOv11改进 | Conv/卷积篇 | 利用2024最新YOLOv9的GELAN模块替换C3k2结构（附轻量化版本 + 高效涨点版本 + 结构图 一、本文介绍 本文给大家带来的改进机制是利用2024/02/21号发布的 YOLOv9其中提出的GELAN模块来改进YOLOv11中的C3k2 ，GELAN融合了CSPNet和ELAN机制同时其中利用到了RepConv在获取更多有效特征的同时在推理时专用单分支结构从而不影响推理速度，同时本文的内容提供了两种版本一种是参数量更低涨点效果略微弱一些的版本，另一种是参数量稍多一些但是效果要不参数量低的效果要好一些（均为我个人整理），提供两种版本是为了适配不同需求的读者，具体选择那种大家可以根据自身的需求来选择即可，文章中我都均已提供， 同时本文的结构存在大量的二次创新机会，后面我也会提供。\n">
+<meta property='og:url' content='https://nickk111.github.io/p/'>
+<meta property='og:site_name' content='DYS&#39;Notes'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' />
+<meta name="twitter:title" content="">
+<meta name="twitter:description" content="YOLOv11改进 | Conv/卷积篇 | 利用2024最新YOLOv9的GELAN模块替换C3k2结构（附轻量化版本 + 高效涨点版本 + 结构图 一、本文介绍 本文给大家带来的改进机制是利用2024/02/21号发布的 YOLOv9其中提出的GELAN模块来改进YOLOv11中的C3k2 ，GELAN融合了CSPNet和ELAN机制同时其中利用到了RepConv在获取更多有效特征的同时在推理时专用单分支结构从而不影响推理速度，同时本文的内容提供了两种版本一种是参数量更低涨点效果略微弱一些的版本，另一种是参数量稍多一些但是效果要不参数量低的效果要好一些（均为我个人整理），提供两种版本是为了适配不同需求的读者，具体选择那种大家可以根据自身的需求来选择即可，文章中我都均已提供， 同时本文的结构存在大量的二次创新机会，后面我也会提供。\n">
+    <link rel="shortcut icon" href="/favicon.ico" />
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended"><aside class="sidebar left-sidebar sticky ">
+    <button class="hamburger hamburger--spin" type="button" id="toggle-menu" aria-label="切换菜单">
+        <span class="hamburger-box">
+            <span class="hamburger-inner"></span>
+        </span>
+    </button>
+
+    <header>
+        
+            
+            <figure class="site-avatar">
+                <a href="/">
+                
+                    
+                    
+                    
+                        
+                        <img src="/img/avatar_hu4140731773748026655.png" width="300"
+                            height="300" class="site-logo" loading="lazy" alt="Avatar">
+                    
+                
+                </a>
+                
+                    <span class="emoji">🍥</span>
+                
+            </figure>
+            
+        
+        
+        <div class="site-meta">
+            <h1 class="site-name"><a href="/">DYS&#39;Notes</a></h1>
+            <h2 class="site-description">天下大事必作于细。</h2>
+        </div>
+    </header><ol class="menu-social">
+            
+                <li>
+                    <a 
+                        href='https://space.bilibili.com/434707570?spm_id_from=333.1007.0.0'
+                        target="_blank"
+                        title="Bilibili"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="24"
+  height="24"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  class="icon icon-tabler icons-tabler-outline icon-tabler-brand-bilibili"
+>
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M3 10a4 4 0 0 1 4 -4h10a4 4 0 0 1 4 4v6a4 4 0 0 1 -4 4h-10a4 4 0 0 1 -4 -4v-6z" />
+  <path d="M8 3l2 3" />
+  <path d="M16 3l-2 3" />
+  <path d="M9 13v-2" />
+  <path d="M15 11v2" />
+</svg>
+                        
+                    </a>
+                </li>
+            
+                <li>
+                    <a 
+                        href='https://github.com/nickk111'
+                        target="_blank"
+                        title="GitHub"
+                        rel="me"
+                    >
+                        
+                        
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-brand-github" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M9 19c-4.3 1.4 -4.3 -2.5 -6 -3m12 5v-3.5c0 -1 .1 -1.4 -.5 -2c2.8 -.3 5.5 -1.4 5.5 -6a4.6 4.6 0 0 0 -1.3 -3.2a4.2 4.2 0 0 0 -.1 -3.2s-1.1 -.3 -3.5 1.3a12.3 12.3 0 0 0 -6.2 0c-2.4 -1.6 -3.5 -1.3 -3.5 -1.3a4.2 4.2 0 0 0 -.1 3.2a4.6 4.6 0 0 0 -1.3 3.2c0 4.6 2.7 5.7 5.5 6c-.6 .6 -.6 1.2 -.5 2v3.5" />
+</svg>
+
+
+
+                        
+                    </a>
+                </li>
+            
+        </ol><ol class="menu" id="main-menu">
+        
+        
+        
+        <li >
+            <a href='/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-home" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="5 12 3 12 12 3 21 12 19 12" />
+  <path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-7" />
+  <path d="M9 21v-6a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v6" />
+</svg>
+
+
+
+                
+                <span>主页</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/%E5%85%B3%E4%BA%8E/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-user" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="7" r="4" />
+  <path d="M6 21v-2a4 4 0 0 1 4 -4h4a4 4 0 0 1 4 4v2" />
+</svg>
+
+
+
+                
+                <span>关于</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/archives/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-archive" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <rect x="3" y="4" width="18" height="4" rx="2" />
+  <path d="M5 8v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-10" />
+  <line x1="10" y1="12" x2="14" y2="12" />
+</svg>
+
+
+
+                
+                <span>Archives</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/search/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-search" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="10" cy="10" r="7" />
+  <line x1="21" y1="21" x2="15" y2="15" />
+</svg>
+
+
+
+                
+                <span>Search</span>
+            </a>
+        </li>
+        
+        
+        <li >
+            <a href='/links/' >
+                
+                
+                
+                    <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-link" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M10 14a3.5 3.5 0 0 0 5 0l4 -4a3.5 3.5 0 0 0 -5 -5l-.5 .5" />
+  <path d="M14 10a3.5 3.5 0 0 0 -5 0l-4 4a3.5 3.5 0 0 0 5 5l.5 -.5" />
+</svg>
+
+
+
+                
+                <span>Links</span>
+            </a>
+        </li>
+        
+        <li class="menu-bottom-section">
+            <ol class="menu">
+                    
+                        <li id="i18n-switch">  
+                            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-language" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+  <path d="M4 5h7" />
+  <path d="M9 3v2c0 4.418 -2.239 8 -5 8" />
+  <path d="M5 9c-.003 2.144 2.952 3.908 6.7 4" />
+  <path d="M12 20l4 -9l4 9" />
+  <path d="M19.1 18h-6.2" />
+</svg>
+
+
+
+                            <select name="language" title="language" onchange="window.location.href = this.selectedOptions[0].value">
+                                
+                                    <option value="https://nickk111.github.io/" selected>中文</option>
+                                
+                                    <option value="https://nickk111.github.io/en/" >English</option>
+                                
+                            </select>
+                        </li>
+                    
+                
+
+                
+                    <li id="dark-mode-toggle">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="8" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-toggle-right" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="16" cy="12" r="2" />
+  <rect x="2" y="6" width="20" height="12" rx="6" />
+</svg>
+
+
+
+                        <span>暗色模式</span>
+                    </li>
+                
+            </ol>
+        </li>
+    </ol>
+</aside>
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">目录</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#使用yolov8训练自己的数据集">使用YOLOv8训练自己的数据集</a>
+      <ol>
+        <li><a href="#yolov8原理解析">YOLOv8原理解析</a>
+          <ol>
+            <li><a href="#结构说明">结构说明</a></li>
+            <li><a href="#损失函数说明">损失函数说明</a></li>
+            <li><a href="#数据增强说明">数据增强说明</a></li>
+            <li><a href="#训练策略说明">训练策略说明</a></li>
+          </ol>
+        </li>
+        <li><a href="#代码解析">代码解析</a></li>
+        <li><a href="#数据集准备">数据集准备</a></li>
+        <li><a href="#环境配置">环境配置</a></li>
+        <li><a href="#模型训练和测试">模型训练和测试</a>
+          <ol>
+            <li><a href="#模型的训练">模型的训练</a></li>
+            <li><a href="#模型的测试">模型的测试</a></li>
+          </ol>
+        </li>
+        <li><a href="#图形化界面开发">图形化界面开发</a></li>
+      </ol>
+    </li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/"></a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    阅读时长: 9 分钟
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h1 id="使用yolov8训练自己的数据集原理解析数据标注说明训练教程图形化系统开发">使用YOLOv8训练自己的数据集（原理解析+数据标注说明+训练教程+图形化系统开发）
+</h1><h2 id="使用yolov8训练自己的数据集">使用YOLOv8训练自己的数据集
+</h2><p>Hello，大家好，本次我们来教大家使用YOLOV8训练自己的数据集。</p>
+<blockquote>
+<p>视频地址：<a class="link" href="https://www.bilibili.com/video/BV1KHp2eREFZ/?spm_id_from=333.999.0.0&amp;vd_source=2f9a4e63109c3db3be5e8078e5111776"  target="_blank" rel="noopener"
+    >手把手教你用YOLOv8训练自己的数据集（原理解析+代码实践）_哔哩哔哩_bilibili</a></p>
+<p>GitHub资源地址：</p>
+</blockquote>
+<p>YOLO系列目前已经更新到了V11，并且YOLO系列模型已经目前稳定运行了一段时间。 从原理、数据标注和环境配置 ，帮助小伙伴们掌握YOLOv8的基本内容。注意本次的教程除了支持v8模型的训练，还适用v3、v5、v9、v10等一系列模型的训练。</p>
+<p>为了帮助大家能灵活选择自己喜欢的内容，我们选择分P的方式进行更新。比如，有的小伙伴只喜欢理论的部分，有的小伙伴只喜欢实操的部分，这样大家可以根据自己的需要各取所需。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/5d0e99275e7f292a39b00e37d35bde6b.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818153803760"
+	
+	
+></p>
+<h3 id="yolov8原理解析">YOLOv8原理解析
+</h3><p><img src="/%e4%bd%bf%e7%94%a8YOLOv8%e8%ae%ad%e7%bb%83%e8%87%aa%e5%b7%b1%e7%9a%84%e6%95%b0%e6%8d%ae%e9%9b%86_%e5%8e%9f%e7%90%86%e8%a7%a3%e6%9e%90_%e6%95%b0%e6%8d%ae%e6%a0%87%e6%b3%a8%e8%af%b4%e6%98%8e_%e8%ae%ad%e7%bb%83%e6%95%99%e7%a8%8b_%e5%9b%be%e5%bd%a2%e5%8c%96%e7%b3%bb%e7%bb%9f%e5%bc%80%e5%8f%91_.assets/yolov8%e7%bd%91%e7%bb%9c%e7%bb%93%e6%9e%84%e5%9b%be.jpg"
+	
+	
+	
+	loading="lazy"
+	
+		alt="yolov8网络结构图"
+	
+	
+></p>
+<p>Ultralytics开发的YOLOv8是一款尖端、最先进（SOTA）的模型，它借鉴了之前YOLO版本的成功经验，并引入了新的特性和改进，以进一步提高性能和灵活性。YOLOv8旨在实现快速、准确和易于使用，因此是各种目标检测、图像分割和图像分类任务的绝佳选择。注意，此时的YOLOv8的模型已经基本完成了最终的进化，除了支持最经典的目标检测任务之外，还添加了对语义分割、分类和追踪等任务的支持。当然我们本期还是选择大家最熟悉的检测任务来进行展开，关于后续的其他任务我们再另外录制。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/dd63b942078b1adb77bef945e43218a8.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="Ultralytics YOLO supported tasks"
+	
+	
+></p>
+<p>首先我们来看一下YOLOv8算法的性能。下图是官方提供了性能图，其中左图的横坐标表示的是网络的参数量，右图的横坐标表示的网络在A100显卡上的推理速度，纵坐标方面表示表示的都是模型的精度。可以看出，YOLOv8模型的在同样的参数量下，比其他系列的YOLO模型有明显的精度提升，在右图展示的同样的map精度下，YOLOv8的模型也同样有更快的速度，还真就是那个更高、更快、更强。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/bc15b1cf737d5c52cedc59d5403128b5.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="Ultralytics YOLOv8"
+	
+	
+></p>
+<p>下面的表格则是来自<a class="link" href="https://docs.ultralytics.com/models/yolov8/#overview"  target="_blank" rel="noopener"
+    >YOLOv8 - Ultralytics YOLO Docs</a>提供的在coco数据集上的测试结果，从表中可以看出，对于他的nano模型而言，在只有3.2M的参数量下，就可以达到37.3的mAP，非常优秀的数值表现。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/84bdd646c1e40ba856193b6b50b4918c.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240816165549221"
+	
+	
+></p>
+<p>YOLOv8算法的核心点可以总结为下面几点。</p>
+<ol>
+<li><strong>给出了一个全新的视觉模型</strong> ，保持精度的同时，实现了较高的检测速度，并且同时支持支持图像分类、物体检测和实例分割等多种视觉任务。并且提供了多个规模的模型（nano、small、medium、large和x-large），满足用户不同场景的需要。</li>
+<li><strong>新的骨干网络</strong> ：YOLOv8引入了一个新的骨干网络，可能参考了YOLOv7 ELAN设计思想，将YOLOv5中的C3结构换成了梯度流更丰富的C2f结构，并对不同尺度模型调整了不同的通道数，大幅提升了模型性能。</li>
+<li><strong>解耦头的设计</strong> ：YOLOv8的Head部分从原先的耦合头变成了解耦头结构，将分类和检测头分离，并且从Anchor-Based转变为Anchor-Free，简化了模型结构并提高了推理速度。</li>
+<li><strong>新的损失函数</strong> ：YOLOv8在Loss计算方面采用了TaskAlignedAssigner正样本分配策略，并引入了Distribution Focal Loss，确保了检测结果的准确性和鲁棒性。</li>
+</ol>
+<p>OK，说完这里的性能表现，我们就一起来看看YOLOv8结构方面的内容吧。</p>
+<h4 id="结构说明">结构说明
+</h4><p>首先是YOLOv8的网络结构图</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/0e919b97e4b64cfc32bf174c037164cc.jpeg"
+	
+	
+	
+	loading="lazy"
+	
+		alt="222869864-1955f054-aa6d-4a80-aed3-92f30af28849"
+	
+	
+></p>
+<ul>
+<li>骨干网络部分：</li>
+</ul>
+<p>骨干网络部分的c2f结构可能借鉴了<a class="link" href="https://github.com/WongKinYiu/yolov7"  target="_blank" rel="noopener"
+    >YOLOv7</a>的设计。将原先的c3模块更新了c2f的模块，其中c3表示使用了3个常规的卷积模块，c2f表示使用了2个卷积模块并且更快（fast）。在不改变原始架构和梯度传输路径的前提下， 使用分组卷积踢来以及使用洗牌和合并的操作组合不同组的特征，增强模型从不同特征图中的学习能力，达到改善参数的作用。</p>
+<p>下图是YOLOv7中原文提到的Elan的结构，主要是使用了更多的连接和合并的操作。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/c27ed347dcd6c450d4ea97d76bf6bc38.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240816171847228"
+	
+	
+></p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/8cfd42013526828e7cf7a9702ce2a598.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="module"
+	
+	
+></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-fallback" data-lang="fallback"><span class="line"><span class="cl">    class C3(nn.Module):
+</span></span><span class="line"><span class="cl">    &#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">    这里是使用了3个卷积层的csp结构
+</span></span><span class="line"><span class="cl">    CSP Bottleneck with 3 convolutions.
+</span></span><span class="line"><span class="cl">    &#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    def __init__(self, c1, c2, n=1, shortcut=True, g=1, e=0.5):
+</span></span><span class="line"><span class="cl">        &#34;&#34;&#34;Initialize the CSP Bottleneck with given channels, number, shortcut, groups, and expansion values.&#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">        super().__init__()
+</span></span><span class="line"><span class="cl">        c_ = int(c2 * e)  # hidden channels
+</span></span><span class="line"><span class="cl">        self.cv1 = Conv(c1, c_, 1, 1)
+</span></span><span class="line"><span class="cl">        self.cv2 = Conv(c1, c_, 1, 1)
+</span></span><span class="line"><span class="cl">        self.cv3 = Conv(2 * c_, c2, 1)  # optional act=FReLU(c2)
+</span></span><span class="line"><span class="cl">        self.m = nn.Sequential(*(Bottleneck(c_, c_, shortcut, g, k=((1, 1), (3, 3)), e=1.0) for _ in range(n)))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    def forward(self, x):
+</span></span><span class="line"><span class="cl">        &#34;&#34;&#34;Forward pass through the CSP bottleneck with 2 convolutions.&#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">        return self.cv3(torch.cat((self.m(self.cv1(x)), self.cv2(x)), 1))
+</span></span><span class="line"><span class="cl">    
+</span></span><span class="line"><span class="cl">class C2f(nn.Module):
+</span></span><span class="line"><span class="cl">    &#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">    这里使用了分支处理的操作，使用的是通过关闭残差链接的方式实现
+</span></span><span class="line"><span class="cl">    先进行分支的操作然后再进行特征融合的操作
+</span></span><span class="line"><span class="cl">    Faster Implementation of CSP Bottleneck with 2 convolutions.
+</span></span><span class="line"><span class="cl">    &#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+</span></span><span class="line"><span class="cl">        &#34;&#34;&#34;Initialize CSP bottleneck layer with two convolutions with arguments ch_in, ch_out, number, shortcut, groups,
+</span></span><span class="line"><span class="cl">        expansion.
+</span></span><span class="line"><span class="cl">        &#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">        super().__init__()
+</span></span><span class="line"><span class="cl">        self.c = int(c2 * e)  # hidden channels
+</span></span><span class="line"><span class="cl">        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+</span></span><span class="line"><span class="cl">        self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
+</span></span><span class="line"><span class="cl">        self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    def forward(self, x):
+</span></span><span class="line"><span class="cl">        &#34;&#34;&#34;Forward pass through C2f layer.&#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">        y = list(self.cv1(x).chunk(2, 1))
+</span></span><span class="line"><span class="cl">        y.extend(m(y[-1]) for m in self.m)
+</span></span><span class="line"><span class="cl">        return self.cv2(torch.cat(y, 1))
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl">    def forward_split(self, x):
+</span></span><span class="line"><span class="cl">        &#34;&#34;&#34;Forward pass using split() instead of chunk().&#34;&#34;&#34;
+</span></span><span class="line"><span class="cl">        y = list(self.cv1(x).split((self.c, self.c), 1))
+</span></span><span class="line"><span class="cl">        y.extend(m(y[-1]) for m in self.m)
+</span></span><span class="line"><span class="cl">        return self.cv2(torch.cat(y, 1))
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>除此之外，YOLOv8的主干还去掉了neck部分中的2个卷积层，以及将block的数量从原先的 3-6-9-3 改成了 3-6-6-3。另外，在之前的YOLOv5的网络结构中，只需要更改一下w和h系数就能统一适配不同规模的模型，但是对于YOLOv8而言，其中N和S的结构一致，L和X的结构一致，这两对模型可以只通过修改缩放系数就完成替换。在YOLOv10中，作者也提到了这个观点，为了追求网络的灵活性，导致网络同质化比较严重，其中有些冗余的模块是可以去除的，也说明现在的网络结构向着比较定制化的方向进行，当然，这句话是我的个人观点。</p>
+<ul>
+<li>解码头部分：</li>
+</ul>
+<p>解码头的部分选择使用了分类的解码头，也就是边界框回归是一个分支以及分类的是一个分支。如下图所示，上面的子图是原先的解码头部，经过主干网络进行特征提取之后得到特征图，之后直接进入一个模块中进行解码，这里的数值计算包含3个部分，分别是用于边界框回归的CIoU、用于置信度计算的obj和用于分类类别计算的CLS。改进之后的头部如下面的子图所示，经过主干网络进行特征提取之后，上面的子分支用于回归，下面的子分支则用于分类，去除了之前的obj的部分，在回归的分支中，使用的是Distribution Focal Loss。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/721a0c551fd978d3910d7960a77fa188.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="head"
+	
+	
+></p>
+<p>其中DFL损失函数的定义如下，通俗来讲就是训练的过程中，目标的边界框不应该是一个确定的数值，目标的边界框应该是一个分布，比如对于浪花这个物体而言，他的边界就是不清晰的，通过这样的损失函数可以减少网络在训练过程中出现的过拟合的现象。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/eca6703ecfc4e6f35ea23584c984cb5e.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240816235150126"
+	
+	
+></p>
+<p>其中，DFL实现的代码如下：</p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-python" data-lang="python"><span class="line"><span class="cl">    <span class="k">def</span> <span class="nf">distribution_focal_loss</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">label</span><span class="p">):</span>
+</span></span><span class="line"><span class="cl">    <span class="sa">r</span><span class="s2">&#34;&#34;&#34;Distribution Focal Loss (DFL) is from `Generalized Focal Loss: Learning
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Qualified and Distributed Bounding Boxes for Dense Object Detection
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &lt;https://arxiv.org/abs/2006.04388&gt;`_.
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Args:
+</span></span></span><span class="line"><span class="cl"><span class="s2">        pred (torch.Tensor): Predicted general distribution of bounding boxes
+</span></span></span><span class="line"><span class="cl"><span class="s2">            (before softmax) with shape (N, n+1), n is the max value of the
+</span></span></span><span class="line"><span class="cl"><span class="s2">            integral set `{0, ..., n}` in paper.
+</span></span></span><span class="line"><span class="cl"><span class="s2">        label (torch.Tensor): Target distance label for bounding boxes with
+</span></span></span><span class="line"><span class="cl"><span class="s2">            shape (N,).
+</span></span></span><span class="line"><span class="cl"><span class="s2">
+</span></span></span><span class="line"><span class="cl"><span class="s2">    Returns:
+</span></span></span><span class="line"><span class="cl"><span class="s2">        torch.Tensor: Loss tensor with shape (N,).
+</span></span></span><span class="line"><span class="cl"><span class="s2">    &#34;&#34;&#34;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">#label为y, pred为y^(y的估计值）</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">#因为y_i &lt;= y &lt;= y_i+1(paper)</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">#取dis_left = y_i, dis_right = y_i+1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dis_left</span> <span class="o">=</span> <span class="n">label</span><span class="o">.</span><span class="n">long</span><span class="p">()</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dis_right</span> <span class="o">=</span> <span class="n">dis_left</span> <span class="o">+</span> <span class="mi">1</span>
+</span></span><span class="line"><span class="cl">    <span class="n">weight_left</span> <span class="o">=</span> <span class="n">dis_right</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="o">-</span> <span class="n">label</span> <span class="c1">#y_i+1-y</span>
+</span></span><span class="line"><span class="cl">    <span class="n">weight_right</span> <span class="o">=</span> <span class="n">label</span> <span class="o">-</span> <span class="n">dis_left</span><span class="o">.</span><span class="n">float</span><span class="p">()</span> <span class="c1">#y-y_i</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">#paper中的log(S)这里用CE</span>
+</span></span><span class="line"><span class="cl">    <span class="n">loss</span> <span class="o">=</span> <span class="p">(</span>
+</span></span><span class="line"><span class="cl">        <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">dis_left</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&#34;none&#34;</span><span class="p">)</span> <span class="o">*</span> <span class="n">weight_left</span>
+</span></span><span class="line"><span class="cl">        <span class="o">+</span> <span class="n">F</span><span class="o">.</span><span class="n">cross_entropy</span><span class="p">(</span><span class="n">pred</span><span class="p">,</span> <span class="n">dis_right</span><span class="p">,</span> <span class="n">reduction</span><span class="o">=</span><span class="s2">&#34;none&#34;</span><span class="p">)</span> <span class="o">*</span> <span class="n">weight_right</span>
+</span></span><span class="line"><span class="cl">    <span class="p">)</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">loss</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><h4 id="损失函数说明">损失函数说明
+</h4><p>YOLOv8的loss计算包含了分类和回归两个部分，没有了之前的objectness的分支部分，其中分类的分支采用的是BCE Loss，回归的分支使用了两个部分，分别是上面提到的Distribution Focal Loss和CIoU Loss，3个损失函数按照一定的权重比例进行加权。</p>
+<p>关于正负样本的分配，其中YOLOv5中使用的是静态的分布策略，简单来说，静态的分布策略是将标签中的GT Box和Anchor Templates模板计算IoU，如果IoU大于设定的阈值就认为是匹配成功，匹配成功的边界框将会参与到CIoU Loss的计算中。当然这里所述的是简化的版本，实际子计算的过程中还会去计算GT Box和对应的的Anchor Templates模板高宽的比例。假设对某个GT Box而言，其实只要GT Box满足在某个Anchor Template宽和高的× 0.25 0.25倍和4.0倍之间就算匹配成功。关于这部分更详细的解释可以看<a class="link" href="https://blog.csdn.net/qq_37541097/article/details/123594351?spm=1001.2014.3001.5501"  target="_blank" rel="noopener"
+    >YOLOv5网络详解_yolov5网络结构详解-CSDN博客</a>。在YOLOv8中，使用的是动态分布的策略（YOLOX 的 simOTA、TOOD 的 TaskAlignedAssigner 和 RTMDet 的 DynamicSoftLabelAssigner），这里直接使用的是 TOOD 的 TaskAlignedAssigner。 TaskAlignedAssigner 的匹配策略简单总结为： 根据分类与回归的分数加权的分数选择正样本。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/a74e8731777476c1b86a1750d1b05553.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240817001553493"
+	
+	
+></p>
+<p>s是标注类别对应的预测分数值，u是预测框和gt框之间的iou。计算出分数之后，根据分数选取topK大的作为正样本，其余作为负样本。</p>
+<h4 id="数据增强说明">数据增强说明
+</h4><p>数据增强的部分和YOLOv5基本保持了一致，包含了颜色变换、马赛克数据增强、随机剪切等一系列常规的数据增强的方式。并且使用YOLOX的数据增强策略，在前面的部分使用数据增强，而在最后的10个epoch中关闭数据增强。如下图所示。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/71f91ae058e6ff1f18192733903f40b6.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="head"
+	
+	
+></p>
+<p>对于一些常见的数据增强的方式的说明。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/981cb3b7c53cf508ccde5009a7e2b269.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240817002209214"
+	
+	
+></p>
+<h4 id="训练策略说明">训练策略说明
+</h4><p>YOLOv8 的推理过程和 YOLOv5 几乎一样，唯一差别在于前面需要对 Distribution Focal Loss 中的积分表示 bbox 形式进行解码，变成常规的 4 维度 bbox，后续计算过程就和 YOLOv5 一样了。</p>
+<p>以 COCO 80 类为例，假设输入图片大小为 640x640，MMYOLO 中实现的推理过程示意图如下所示：</p>
+<p>其推理和后处理过程为：</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/1fd11a215281a4e1c2bb19709db7b2b8.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="head"
+	
+	
+></p>
+<p><strong>(1) bbox 积分形式转换为 4d bbox 格式</strong></p>
+<p>对 Head 输出的 bbox 分支进行转换，利用 Softmax 和 Conv 计算将积分形式转换为 4 维 bbox 格式</p>
+<p><strong>(2) 维度变换</strong></p>
+<p>YOLOv8 输出特征图尺度为 <code>80x80</code>、<code>40x40</code> 和 <code>20x20</code> 的三个特征图。Head 部分输出分类和回归共 6 个尺度的特征图。 将 3 个不同尺度的类别预测分支、bbox 预测分支进行拼接，并进行维度变换。为了后续方便处理，会将原先的通道维度置换到最后，类别预测分支 和 bbox 预测分支 shape 分别为 (b, 80x80+40x40+20x20, 80)=(b,8400,80)，(b,8400,4)。</p>
+<p><strong>(3) 解码还原到原图尺度</strong></p>
+<p>分类预测分支进行 Sigmoid 计算，而 bbox 预测分支需要进行解码，还原为真实的原图解码后 xyxy 格式。</p>
+<p><strong>(4) 阈值过滤</strong></p>
+<p>遍历 batch 中的每张图，采用 <code>score_thr</code> 进行阈值过滤。在这过程中还需要考虑 <strong>multi_label 和 nms_pre，确保过滤后的检测框数目不会多于 nms_pre。</strong></p>
+<p><strong>(5) 还原到原图尺度和 nms</strong></p>
+<p>基于前处理过程，将剩下的检测框还原到网络输出前的原图尺度，然后进行 nms 即可。最终输出的检测框不能多于 <strong>max_per_img。</strong></p>
+<p>有一个特别注意的点： <strong>YOLOv5 中采用的 Batch shape 推理策略，在 YOLOv8 推理中暂时没有开启，不清楚后面是否会开启，在 MMYOLO 中快速测试了下，如果开启 Batch shape 会涨大概 0.1~0.2。</strong></p>
+<h3 id="代码解析">代码解析
+</h3><p>下载代码之后，你将会看到下面的代码目录结构，其中<code>42_demo</code>是我准备的简易的执行文件，其余文件都是官方的文件和目录，每个文件大概的作用如下。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/82561248499db54edbe759fb94926517.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818114837691"
+	
+	
+></p>
+<ul>
+<li>42_demo/</li>
+</ul>
+<p>这个目录下的文件是用于我们本次教程的脚本，我们将训练、测试、预测等脚本进行了单独的封装，方便初学者或者不是计算机专业的同学运行，每个脚本对应的含义如下。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/385ef38fa03a5309f427299e9a850951.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818121142997"
+	
+	
+></p>
+<p>其中比较重要的是训练的脚本<code>start_train.py</code>，这个脚本记录了数据的加载和一些训练的超参数，内容如下。</p>
+<pre><code>    import time
+from ultralytics import YOLO
+
+# yolov8n模型训练：训练模型的数据为'A_my_data.yaml'，轮数为100，图片大小为640，设备为本地的GPU显卡，关闭多线程的加载，图像加载的批次大小为4，开启图片缓存
+model = YOLO('yolov8n.pt')  # load a pretrained model (recommended for training)
+results = model.train(data='A_my_data.yaml', epochs=100, imgsz=640, device=[0,], workers=0, batch=4, cache=True)  # 开始训练
+time.sleep(10) # 睡眠10s，主要是用于服务器多次训练的过程中使用
+</code></pre>
+<p>​ <br>
+​</p>
+<p>预测的测试脚本主要用于单张图像的检测，脚本为<code>start_single_detect.py</code></p>
+<pre><code>    from ultralytics import YOLO
+
+# Load a model
+model = YOLO(&quot;yolov8n.pt&quot;)  # pretrained YOLOv8n model
+
+# Run batched inference on a list of images
+results = model([&quot;images/resources/demo.jpg&quot;, ])  # return a list of Results objects
+
+# Process results list
+for result in results:
+    boxes = result.boxes  # Boxes object for bounding box outputs
+    masks = result.masks  # Masks object for segmentation masks outputs
+    keypoints = result.keypoints  # Keypoints object for pose outputs
+    probs = result.probs  # Probs object for classification outputs
+    obb = result.obb  # Oriented boxes object for OBB outputs
+    result.show()  # display to screen
+    result.save(filename=&quot;images/resources/result.jpg&quot;)  # save to disk
+</code></pre>
+<p>​</p>
+<ul>
+<li>docker/</li>
+</ul>
+<p>Docker 是一个开源的应用容器引擎，它允许开发者打包他们的应用以及依赖包到一个可移植的容器中，然后发布到任何流行的 Linux 机器上，也可以实现虚拟化。容器是完全使用沙箱机制，相互之间不会有任何接口。</p>
+<p>简单来说，Docker 提供了一个可以运行你的应用程序的虚拟环境，但它比传统的虚拟机更加轻量和快速。使用 Docker，你可以轻松地在不同的机器和平台上部署、运行和管理应用程序，而无需担心环境配置和依赖问题。</p>
+<p>这个目录是根据用户不同的软硬件情况写的配置文件，但是一般情况下大家使用的不是很多，对于看我内容的小伙伴来说，大部分都是学生，使用的更少，所以这里的内容我们就不详细说明了。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/cf8914a053eba04b31806bc36af1c3b7.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818123305515"
+	
+	
+></p>
+<ul>
+<li>docs/</li>
+</ul>
+<p>这个目录用于放置对这个代码解释的官方文档，包含了各个不同的语言。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/40302a18f405f94a05fbe16af0caaee1.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818123410826"
+	
+	
+></p>
+<ul>
+<li>examples/</li>
+</ul>
+<p>这个目录下有官方提供的一些案例，并且包含了一些模型导出之后C++的调用脚本，这里的脚本大多数时候只有在实际部署的时候才会使用到，关于硬件部署是一个比较复杂的内容，这块的内容我们会单独抽时间来讲。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/a146ce25e507e6945d648d9b8e0c4712.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818123441605"
+	
+	
+></p>
+<ul>
+<li>test/</li>
+</ul>
+<p>test目录存放了一些自动化测试的脚本。</p>
+<ul>
+<li>ultralytics/</li>
+</ul>
+<p>该目录是整个项目的核心目录，存放了网络结构的底层实现和网络、数据集一系列的配置文件，平常修改网络结构和新增数据都会在这个目录下执行。</p>
+<p>assets目录下存放了两张经典的测试图像，用于模型的初步验证。</p>
+<p>cfg目录下存放了数据、模型和追踪的配置文件，举个例子，其中datasets下面的A_my_data.yaml就是我们本次教程使用的数据集配置文件，在这个路径中我们指明了数据集的路径和类别等信息。而models目录下的yolov8.yaml配置文件则指定了我们要使用到的模型。详细的内容如下：</p>
+<p>A_my_data.yaml</p>
+<pre><code>    # Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: ../../person_42_yolo_format
+train: # train images (relative to 'path')  16551 images
+  - images/train
+val: # val images (relative to 'path')  4952 images
+  - images/val
+test: # test images (optional)
+  - images/test
+
+# Classes
+# ['Chave', 'DISJUNTOR', 'TP', 'Pararraio', 'TC']
+names:
+: person
+</code></pre>
+<p>​</p>
+<p>yolov8.yaml</p>
+<pre><code>    # Ultralytics YOLO 🚀, AGPL-3.0 license
+# YOLOv8 object detection model with P3-P5 outputs. For Usage examples see https://docs.ultralytics.com/tasks/detect
+
+# Parameters
+nc: 80 # number of classes
+scales: # model compound scaling constants, i.e. 'model=yolov8n.yaml' will call yolov8.yaml with scale 'n'
+  # [depth, width, max_channels]
+  n: [0.33, 0.25, 1024] # YOLOv8n summary: 225 layers,  3157200 parameters,  3157184 gradients,   8.9 GFLOPs
+  s: [0.33, 0.50, 1024] # YOLOv8s summary: 225 layers, 11166560 parameters, 11166544 gradients,  28.8 GFLOPs
+  m: [0.67, 0.75, 768] # YOLOv8m summary: 295 layers, 25902640 parameters, 25902624 gradients,  79.3 GFLOPs
+  l: [1.00, 1.00, 512] # YOLOv8l summary: 365 layers, 43691520 parameters, 43691504 gradients, 165.7 GFLOPs
+  x: [1.00, 1.25, 512] # YOLOv8x summary: 365 layers, 68229648 parameters, 68229632 gradients, 258.5 GFLOPs
+
+# YOLOv8.0n backbone
+backbone:
+  # [from, repeats, module, args]
+  - [-1, 1, Conv, [64, 3, 2]] # 0-P1/2
+  - [-1, 1, Conv, [128, 3, 2]] # 1-P2/4
+  - [-1, 3, C2f, [128, True]]
+  - [-1, 1, Conv, [256, 3, 2]] # 3-P3/8
+  - [-1, 6, C2f, [256, True]]
+  - [-1, 1, Conv, [512, 3, 2]] # 5-P4/16
+  - [-1, 6, C2f, [512, True]]
+  - [-1, 1, Conv, [1024, 3, 2]] # 7-P5/32
+  - [-1, 3, C2f, [1024, True]]
+  - [-1, 1, SPPF, [1024, 5]] # 9
+
+# YOLOv8.0n head
+head:
+  - [-1, 1, nn.Upsample, [None, 2, &quot;nearest&quot;]]
+  - [[-1, 6], 1, Concat, [1]] # cat backbone P4
+  - [-1, 3, C2f, [512]] # 12
+
+  - [-1, 1, nn.Upsample, [None, 2, &quot;nearest&quot;]]
+  - [[-1, 4], 1, Concat, [1]] # cat backbone P3
+  - [-1, 3, C2f, [256]] # 15 (P3/8-small)
+
+  - [-1, 1, Conv, [256, 3, 2]]
+  - [[-1, 12], 1, Concat, [1]] # cat head P4
+  - [-1, 3, C2f, [512]] # 18 (P4/16-medium)
+
+  - [-1, 1, Conv, [512, 3, 2]]
+  - [[-1, 9], 1, Concat, [1]] # cat head P5
+  - [-1, 3, C2f, [1024]] # 21 (P5/32-large)
+
+  - [[15, 18, 21], 1, Detect, [nc]] # Detect(P3, P4, P5)
+</code></pre>
+<p>​</p>
+<p>后面的<code>data</code>、<code>engine</code>、<code>hub</code>、<code>models</code>、<code>nn</code>、<code>solution</code>、<code>trackers</code>、<code>utils</code>则分别定义了数据、模型训练引擎、训练可视化、模型、网络结构、解决方案、追踪和工具类的底层代码实现。比如在nn目录下的models目录下的block.py中就给出了c2f模块的定义。</p>
+<pre><code>    class C2f(nn.Module):
+    &quot;&quot;&quot;
+    这里使用了分支处理的操作，使用的是通过关闭残差链接的方式实现
+    先进行分支的操作然后再进行特征融合的操作
+    Faster Implementation of CSP Bottleneck with 2 convolutions.
+    &quot;&quot;&quot;
+
+    def __init__(self, c1, c2, n=1, shortcut=False, g=1, e=0.5):
+        &quot;&quot;&quot;Initialize CSP bottleneck layer with two convolutions with arguments ch_in, ch_out, number, shortcut, groups,
+        expansion.
+        &quot;&quot;&quot;
+        super().__init__()
+        self.c = int(c2 * e)  # hidden channels
+        self.cv1 = Conv(c1, 2 * self.c, 1, 1)
+        self.cv2 = Conv((2 + n) * self.c, c2, 1)  # optional act=FReLU(c2)
+        self.m = nn.ModuleList(Bottleneck(self.c, self.c, shortcut, g, k=((3, 3), (3, 3)), e=1.0) for _ in range(n))
+
+    def forward(self, x):
+        &quot;&quot;&quot;Forward pass through C2f layer.&quot;&quot;&quot;
+        y = list(self.cv1(x).chunk(2, 1))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
+
+    def forward_split(self, x):
+        &quot;&quot;&quot;Forward pass using split() instead of chunk().&quot;&quot;&quot;
+        y = list(self.cv1(x).split((self.c, self.c), 1))
+        y.extend(m(y[-1]) for m in self.m)
+        return self.cv2(torch.cat(y, 1))
+</code></pre>
+<p>​</p>
+<ul>
+<li>ultralytics.egg-info/</li>
+</ul>
+<p><strong>egg-info是一个目录</strong> ，它在安装或开发Python包时由setuptools生成，用于存储关于该包的元数据。这些元数据对于包的管理、分发和安装至关重要，它们帮助pip和其他工具了解包的详细信息、版本信息、依赖关系等。这个目录是我们执行pip指令以开发者模式安装的时候出现的。</p>
+<ul>
+<li>CITATION.cff</li>
+</ul>
+<p>这个文件中包含了引用这个项目的格式说明。</p>
+<ul>
+<li>CONTRIBUTING.md</li>
+</ul>
+<p>这个里面说明了你可以如何为这个项目提供自己的贡献，让自己的名字出现在作者名单中。</p>
+<ul>
+<li>LICENSE</li>
+</ul>
+<p>提供了这该项目的许可信息。</p>
+<ul>
+<li>mkdocs.yml</li>
+</ul>
+<p>用于定义项目的各种设置和配置选项。</p>
+<ul>
+<li>pyproject.toml</li>
+</ul>
+<p><code>pyproject.toml</code> 是一个在 Python 项目中广泛使用的配置文件，它主要用于定义项目的构建系统要求、依赖关系以及相关的工具配置。现在这个 pyproject.toml 也是官方从PEP 518开始推荐的项目配置方式，感兴趣的小伙伴可以去看一下poetry这个库，通过poetry new可以很方便快捷的生成一个项目的脚手架代码。</p>
+<ul>
+<li>README.md</li>
+</ul>
+<p>说明文件，也就是你现在看到的这个内容。</p>
+<ul>
+<li>README.zh-CN.md</li>
+</ul>
+<p>中文格式的说明文件。</p>
+<h3 id="数据集准备">数据集准备
+</h3><p>我们在这里准备了一系列标注好的数据集，如果大家不想自己标注可以看看这里是否有你需要得：<a class="link" href="https://blog.csdn.net/ECHOSON/article/details/141068765"  target="_blank" rel="noopener"
+    >肆十二大作业系列清单-CSDN博客</a><br>
+现在来到我们数据集准备的章节，这个章节教会大家如何自己构建一个yolo的检测数据以及如何使用。</p>
+<p>首先这个位置提供了我们本次教程中使用到的一份标准的行人检测的数据集，一个标准的数据集的构成包含下面的几个目录。</p>
+<pre><code>├─images    # 图像文件夹
+│  ├─train  # 训练集图像
+│  ├─val    # 验证集图像
+│  └─test   # 测试集图像
+└─labels    # 标签文件夹，标签格式为yolo的txt格式
+    ├─train # 训练集标签
+    ├─val   # 验证集标签
+    └─test  # 测试集标签
+</code></pre>
+<p>以训练集为例，给小伙伴们展示一下一个正确的对应关系是怎样的，这里训练集图像数量和标签数量是一致的，并且名称上面去除后缀之后是一一对应的。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/93fe61cf5d00a36346925125c46cf11b.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818134219994"
+	
+	
+></p>
+<p>以2007_000480.jpg为例，下面是对应的2007_000480.txt中的标注文件内容。这个标注文件有三行，对应的是图像中的3个人物，其中每行包含5个数字，分别是类别，归一化处理之后目标中心点的x坐标、y坐标、目标归一化处理之后宽度w和目标归一化处理之后的宽度h。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/a72c28c7524f2f77441172c68bb09ed4.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818134331149"
+	
+	
+></p>
+<p>如果大家要标注自己的数据集，则可以使用labelimg来进行标注，标注之前有几点注意事项。</p>
+<ul>
+<li>标注的图像和路径尽量不要包含中文，图像名称最好是只有数字或者英文。</li>
+<li>标注的时候尽量使用jpg的格式，如果是gif一类的格式后续可能有其他的麻烦。</li>
+<li>标注的时候请一定要确保选择了yolo格式，如果不是yolo格式后续处理起来会非常麻烦。</li>
+<li>最好一次性标注完，负责可能导致前后两次标签的结果不一致。</li>
+</ul>
+<p>ok，首先大家可以在你的虚拟环境中通过<code>pip install labelimg</code>的指令安装标注然后，然后在命令行中键入labelimg来启动标注软件，如下图所示。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/93b08d365d57f6a62639b4d24e0a549b.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818134903915"
+	
+	
+></p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/10df05d13fc5a87ecd4c75b9b757e52e.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818134948284"
+	
+	
+></p>
+<p>接下来，我们打开要标注的文件夹就可以进行标注了，标注之后一定要检查是否标注文件为txt格式。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/355d75c92d6974f1e611499aaf735bf8.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818141821358"
+	
+	
+></p>
+<p>下面是labelimg的常用的快捷方式，大家可以熟悉下面的快捷方式帮助你提升标注的效率。</p>
+<div class="table-wrapper"><table>
+  <thead>
+      <tr>
+          <th>ctrl+s</th>
+          <th>保存</th>
+      </tr>
+  </thead>
+  <tbody>
+      <tr>
+          <td>ctrl+d</td>
+          <td>复制当前标签和矩形框</td>
+      </tr>
+      <tr>
+          <td>Ctrl + r</td>
+          <td>更改默认注释目录（xml文件保存的地址）</td>
+      </tr>
+      <tr>
+          <td>Ctrl + u</td>
+          <td>加载目录中的所有图像，鼠标点击Open dir同功能</td>
+      </tr>
+      <tr>
+          <td>w</td>
+          <td>创建矩阵</td>
+      </tr>
+      <tr>
+          <td>d</td>
+          <td>下一张</td>
+      </tr>
+      <tr>
+          <td>a</td>
+          <td>上一张</td>
+      </tr>
+      <tr>
+          <td>delete</td>
+          <td>删除选定的矩阵框</td>
+      </tr>
+      <tr>
+          <td>space</td>
+          <td>将当前图像标记为已标记</td>
+      </tr>
+  </tbody>
+</table></div>
+<h3 id="环境配置">环境配置
+</h3><p>来到我们最熟悉的章节，环境配置，老生常谈，环境配置基本是一致的，开始前请先学习pycharm和anaconda的使用，不熟悉的小伙伴可以移步这个位置：<a class="link" href="https://blog.csdn.net/ECHOSON/article/details/136097910"  target="_blank" rel="noopener"
+    >【大作业系列入门教程】如何使用Anaconda和Pycharm_2024毕设系列如何使用anaconda-CSDN博客</a></p>
+<p>下载安装包到本地，首先请执行下列指令确保你已经配置好了国内的源。</p>
+<pre><code>conda config --remove-key channels
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free/
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/main/
+conda config --add channels https://mirrors.tuna.tsinghua.edu.cn/anaconda/cloud/pytorch/
+conda config --set show_channel_urls yes
+pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple
+</code></pre>
+<p>之后请先安装pytorch，请根据你设备的实际情况来选择执行GPU安装的指令或者是CPU安装的指令。</p>
+<pre><code>conda install pytorch==1.8.0 torchvision torchaudio cudatoolkit=10.2 # 注意这条命令指定Pytorch的版本和cuda的版本
+conda install pytorch==1.10.0 torchvision torchaudio cudatoolkit=11.3 # 30系列以上显卡gpu版本pytorch安装指令
+conda install pytorch==1.8.0 torchvision==0.9.0 torchaudio==0.8.0 cpuonly # CPU的小伙伴直接执行这条命令即可
+</code></pre>
+<p>接着来到项目的目录下，以开发者的模式安装其余需要的库。</p>
+<pre><code>pip install -v -e .
+</code></pre>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/ed02ce78630be53acee0f7025f83d52f.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240819003030009"
+	
+	
+></p>
+<p>OK，我们来做一个简单的测试，观看是否生效，如果你看到了下面的结果则说明你的环境配置没有问题。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/45a63df58518338d3473095fd02be97d.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240819003145006"
+	
+	
+></p>
+<p>如果没有出现上面的检测结果，则说明你的配置出现了问题，可以在评论区中留言，让小伙伴们一同给你解答。</p>
+<h3 id="模型训练和测试">模型训练和测试
+</h3><h4 id="模型的训练">模型的训练
+</h4><p>训练的脚本对应的是：</p>
+<pre><code>import time
+from ultralytics import YOLO
+</code></pre>
+<p>​ <br>
+# yolov8n模型训练：训练模型的数据为&rsquo;A_my_data.yaml&rsquo;，轮数为100，图片大小为640，设备为本地的GPU显卡，关闭多线程的加载，图像加载的批次大小为4，开启图片缓存
+model = YOLO(&lsquo;yolov8n.pt&rsquo;)  # load a pretrained model (recommended for training)
+results = model.train(data=&lsquo;A_my_data.yaml&rsquo;, epochs=100, imgsz=640, device=[0,], workers=0, batch=4, cache=True)  # 开始训练
+time.sleep(10) # 睡眠10s，主要是用于服务器多次训练的过程中使用</p>
+<p>​ <br>
+​</p>
+<p>开始之前请配置好你的数据集的路径和图片名称，比如我们今天训练的行人检测的数据集的配置如下：</p>
+<pre><code># Train/val/test sets as 1) dir: path/to/imgs, 2) file: path/to/imgs.txt, or 3) list: [path/to/imgs1, path/to/imgs2, ..]
+path: ../../person_42_yolo_format
+train: # train images (relative to 'path')  16551 images
+  - images/train
+val: # val images (relative to 'path')  4952 images
+  - images/val
+test: # test images (optional)
+  - images/test
+
+# Classes
+# ['Chave', 'DISJUNTOR', 'TP', 'Pararraio', 'TC']
+names:
+: person
+</code></pre>
+<p>​</p>
+<p>配置好了直接右键运行即可，比如我们这里是训练100轮，训练的过程中进度条会实时进行更新。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/2ddcaa2ec2aa44b87ff6747ca43aeea9.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818152211336"
+	
+	
+></p>
+<p>训练完毕之后，将会在runs目录下生成一系列的结果图像。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/06dc05de030b22efac4cfb1b0f1ba4fe.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818152553473"
+	
+	
+></p>
+<p>其中如果你需要在你的报告中说明模型的训练过程和训练结果，使用最多的分别是results.png和PR_curve.png，如下图所示。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/2376440b84d87c24da67e3caa63a0fd8.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818152907734"
+	
+	
+></p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/6fbd435ec1ea3880bdea1309d1508024.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818152924610"
+	
+	
+></p>
+<h4 id="模型的测试">模型的测试
+</h4><p>测试的脚本对应的是：</p>
+<pre><code>from ultralytics import YOLO
+
+# 加载自己训练好的模型，填写相对于这个脚本的相对路径或者填写绝对路径均可
+model = YOLO(&quot;runs/detect/yolov8n/weights/best.pt&quot;)
+
+# 开始进行验证，验证的数据集为'A_my_data.yaml'，图像大小为640，批次大小为4，置信度分数为0.25，交并比的阈值为0.6，设备为0，关闭多线程（windows下使用多线程加载数据容易出现问题）
+validation_results = model.val(data='A_my_data.yaml', imgsz=640, batch=4, conf=0.25, iou=0.6, device=&quot;0&quot;, workers=0)
+</code></pre>
+<p>​</p>
+<p>执行测试的脚本，将会输出下面的验证指标。</p>
+<p>如果你不需要图形化界面，可以通过下面的脚本来直接对图像进行预测。</p>
+<pre><code>from ultralytics import YOLO
+
+# Load a model
+model = YOLO(&quot;yolov8n.pt&quot;)  # pretrained YOLOv8n model
+
+# Run batched inference on a list of images
+results = model([&quot;images/resources/demo.jpg&quot;, ])  # return a list of Results objects
+
+# Process results list
+for result in results:
+    boxes = result.boxes  # Boxes object for bounding box outputs
+    masks = result.masks  # Masks object for segmentation masks outputs
+    keypoints = result.keypoints  # Keypoints object for pose outputs
+    probs = result.probs  # Probs object for classification outputs
+    obb = result.obb  # Oriented boxes object for OBB outputs
+    result.show()  # display to screen
+    result.save(filename=&quot;images/resources/result.jpg&quot;)  # save to disk
+</code></pre>
+<p>​</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/99a0cce258279c9470cb0763157654be.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818151945707"
+	
+	
+></p>
+<h3 id="图形化界面开发">图形化界面开发
+</h3><p>图形化界面部分的开发，我们采用了新的PySide6/PyQt6。PyQt和PySide都是C++的程序开发框架Qt的Python实现。PyQt是第三方组织对Qt官方提供的Python实现，也是Qt for Python最主要的实现。Qt官方对Python的支持力度越来越大，由于各种原因，Qt的官方选择使用PySide提供对Python Qt的支持。所以，Python Qt实际上存在两个分支：Qt4对应PyQt4和PySide；Qt5对应PyQt5和PySide2；Qt6则对应了PyQt6和PySide6。由于官方提供的PySide6从功能上来说更强，所以我们还是切换为PySide6作为本次图形化界面开发的框架。（实测下来他们直接的切换对于我们这些开发人员来说非常丝滑，我本次的更新中也只是更换了一下导入的过程）</p>
+<p>下面是我们这个图形化界面程序的实现，值得注意的是，我们的图形化界面没有使用到designer的图形化工具，所以我们的代码是没有UI文件的，如果有小伙伴对designer那种可视化的图形化界面比较感兴趣，可以去学习一下那种方式，构建出来的图形化界面可能比较炫一些。</p>
+<pre><code>import copy                      # 用于图像复制
+import os                        # 用于系统路径查找
+import shutil                    # 用于复制
+from PySide6.QtGui import *      # GUI组件
+from PySide6.QtCore import *     # 字体、边距等系统变量
+from PySide6.QtWidgets import *  # 窗口等小组件
+import threading                 # 多线程
+import sys                       # 系统库
+import cv2                       # opencv图像处理
+import torch                     # 深度学习框架
+import os.path as osp            # 路径查找
+import time                      # 时间计算
+from ultralytics import YOLO     # yolo核心算法
+
+# 常用的字符串常量
+WINDOW_TITLE =&quot;Target detection system&quot;
+WELCOME_SENTENCE = &quot;欢迎使用基于yolov8的行人检测系统&quot;
+ICON_IMAGE = &quot;images/UI/lufei.png&quot;
+IMAGE_LEFT_INIT = &quot;images/UI/up.jpeg&quot;
+IMAGE_RIGHT_INIT = &quot;images/UI/right.jpeg&quot;
+</code></pre>
+<p>​ <br>
+class MainWindow(QTabWidget):
+def <strong>init</strong>(self):
+# 初始化界面
+super().<strong>init</strong>()
+self.setWindowTitle(WINDOW_TITLE)       # 系统界面标题
+self.resize(1200, 800)           # 系统初始化大小
+self.setWindowIcon(QIcon(ICON_IMAGE))   # 系统logo图像
+self.output_size = 480                  # 上传的图像和视频在系统界面上显示的大小
+self.img2predict = &quot;&quot;                   # 要进行预测的图像路径
+# self.device = &lsquo;cpu&rsquo;
+self.init_vid_id = &lsquo;0&rsquo;  # 摄像头修改
+self.vid_source = int(self.init_vid_id)
+self.cap = cv2.VideoCapture(self.vid_source)
+self.stopEvent = threading.Event()
+self.webcam = True
+self.stopEvent.clear()
+self.model_path = &ldquo;yolov8n.pt&rdquo;  # todo 指明模型加载的位置的设备
+self.model = self.model_load(weights=self.model_path)
+self.conf_thres = 0.25   # 置信度的阈值
+self.iou_thres = 0.45    # NMS操作的时候 IOU过滤的阈值
+self.vid_gap = 30        # 摄像头视频帧保存间隔。
+self.initUI()            # 初始化图形化界面
+self.reset_vid()         # 重新设置视频参数，重新初始化是为了防止视频加载出错</p>
+<pre><code>    # 模型初始化
+    @torch.no_grad()
+    def model_load(self, weights=&quot;&quot;):
+        &quot;&quot;&quot;
+        模型加载
+        &quot;&quot;&quot;
+        model_loaded = YOLO(weights)
+        return model_loaded
+
+    def initUI(self):
+        &quot;&quot;&quot;
+        图形化界面初始化
+        &quot;&quot;&quot;
+        # ********************* 图片识别界面 *****************************
+        font_title = QFont('楷体', 16)
+        font_main = QFont('楷体', 14)
+        img_detection_widget = QWidget()
+        img_detection_layout = QVBoxLayout()
+        img_detection_title = QLabel(&quot;图片识别功能&quot;)
+        img_detection_title.setFont(font_title)
+        mid_img_widget = QWidget()
+        mid_img_layout = QHBoxLayout()
+        self.left_img = QLabel()
+        self.right_img = QLabel()
+        self.left_img.setPixmap(QPixmap(IMAGE_LEFT_INIT))
+        self.right_img.setPixmap(QPixmap(IMAGE_RIGHT_INIT))
+        self.left_img.setAlignment(Qt.AlignCenter)
+        self.right_img.setAlignment(Qt.AlignCenter)
+        mid_img_layout.addWidget(self.left_img)
+        mid_img_layout.addWidget(self.right_img)
+        self.img_num_label = QLabel(&quot;当前检测结果：待检测&quot;)
+        self.img_num_label.setFont(font_main)
+        mid_img_widget.setLayout(mid_img_layout)
+        up_img_button = QPushButton(&quot;上传图片&quot;)
+        det_img_button = QPushButton(&quot;开始检测&quot;)
+        up_img_button.clicked.connect(self.upload_img)
+        det_img_button.clicked.connect(self.detect_img)
+        up_img_button.setFont(font_main)
+        det_img_button.setFont(font_main)
+        up_img_button.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                    &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                    &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                    &quot;QPushButton{border:2px}&quot;
+                                    &quot;QPushButton{border-radius:5px}&quot;
+                                    &quot;QPushButton{padding:5px 5px}&quot;
+                                    &quot;QPushButton{margin:5px 5px}&quot;)
+        det_img_button.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                     &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                     &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                     &quot;QPushButton{border:2px}&quot;
+                                     &quot;QPushButton{border-radius:5px}&quot;
+                                     &quot;QPushButton{padding:5px 5px}&quot;
+                                     &quot;QPushButton{margin:5px 5px}&quot;)
+        img_detection_layout.addWidget(img_detection_title, alignment=Qt.AlignCenter)
+        img_detection_layout.addWidget(mid_img_widget, alignment=Qt.AlignCenter)
+        img_detection_layout.addWidget(self.img_num_label)
+        img_detection_layout.addWidget(up_img_button)
+        img_detection_layout.addWidget(det_img_button)
+        img_detection_widget.setLayout(img_detection_layout)
+
+        # ********************* 视频识别界面 *****************************
+        vid_detection_widget = QWidget()
+        vid_detection_layout = QVBoxLayout()
+        vid_title = QLabel(&quot;视频检测功能&quot;)
+        vid_title.setFont(font_title)
+        self.vid_img = QLabel()
+        self.vid_img.setPixmap(QPixmap(&quot;images/UI/up.jpeg&quot;))
+        vid_title.setAlignment(Qt.AlignCenter)
+        self.vid_img.setAlignment(Qt.AlignCenter)
+        self.webcam_detection_btn = QPushButton(&quot;摄像头实时监测&quot;)
+        self.mp4_detection_btn = QPushButton(&quot;视频文件检测&quot;)
+        self.vid_stop_btn = QPushButton(&quot;停止检测&quot;)
+        self.webcam_detection_btn.setFont(font_main)
+        self.mp4_detection_btn.setFont(font_main)
+        self.vid_stop_btn.setFont(font_main)
+        self.webcam_detection_btn.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                                &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                                &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                                &quot;QPushButton{border:2px}&quot;
+                                                &quot;QPushButton{border-radius:5px}&quot;
+                                                &quot;QPushButton{padding:5px 5px}&quot;
+                                                &quot;QPushButton{margin:5px 5px}&quot;)
+        self.mp4_detection_btn.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                             &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                             &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                             &quot;QPushButton{border:2px}&quot;
+                                             &quot;QPushButton{border-radius:5px}&quot;
+                                             &quot;QPushButton{padding:5px 5px}&quot;
+                                             &quot;QPushButton{margin:5px 5px}&quot;)
+        self.vid_stop_btn.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                        &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                        &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                        &quot;QPushButton{border:2px}&quot;
+                                        &quot;QPushButton{border-radius:5px}&quot;
+                                        &quot;QPushButton{padding:5px 5px}&quot;
+                                        &quot;QPushButton{margin:5px 5px}&quot;)
+        self.webcam_detection_btn.clicked.connect(self.open_cam)
+        self.mp4_detection_btn.clicked.connect(self.open_mp4)
+        self.vid_stop_btn.clicked.connect(self.close_vid)
+        vid_detection_layout.addWidget(vid_title)
+        vid_detection_layout.addWidget(self.vid_img)
+        # todo 添加摄像头检测标签逻辑
+        self.vid_num_label = QLabel(&quot;当前检测结果：{}&quot;.format(&quot;等待检测&quot;))
+        self.vid_num_label.setFont(font_main)
+        vid_detection_layout.addWidget(self.vid_num_label)
+        vid_detection_layout.addWidget(self.webcam_detection_btn)
+        vid_detection_layout.addWidget(self.mp4_detection_btn)
+        vid_detection_layout.addWidget(self.vid_stop_btn)
+        vid_detection_widget.setLayout(vid_detection_layout)
+        # ********************* 模型切换界面 *****************************
+        about_widget = QWidget()
+        about_layout = QVBoxLayout()
+        about_title = QLabel(WELCOME_SENTENCE)
+        about_title.setFont(QFont('楷体', 18))
+        about_title.setAlignment(Qt.AlignCenter)
+        about_img = QLabel()
+        about_img.setPixmap(QPixmap('images/UI/zhu.jpg'))
+        self.model_label = QLabel(&quot;当前模型：{}&quot;.format(self.model_path))
+        self.model_label.setFont(font_main)
+        change_model_button = QPushButton(&quot;切换模型&quot;)
+        change_model_button.setFont(font_main)
+        change_model_button.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                          &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                          &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                          &quot;QPushButton{border:2px}&quot;
+                                          &quot;QPushButton{border-radius:5px}&quot;
+                                          &quot;QPushButton{padding:5px 5px}&quot;
+                                          &quot;QPushButton{margin:5px 5px}&quot;)
+
+        record_button = QPushButton(&quot;查看历史记录&quot;)
+        record_button.setFont(font_main)
+        record_button.clicked.connect(self.check_record)
+        record_button.setStyleSheet(&quot;QPushButton{color:white}&quot;
+                                    &quot;QPushButton:hover{background-color: rgb(2,110,180);}&quot;
+                                    &quot;QPushButton{background-color:rgb(48,124,208)}&quot;
+                                    &quot;QPushButton{border:2px}&quot;
+                                    &quot;QPushButton{border-radius:5px}&quot;
+                                    &quot;QPushButton{padding:5px 5px}&quot;
+                                    &quot;QPushButton{margin:5px 5px}&quot;)
+        change_model_button.clicked.connect(self.change_model)
+        about_img.setAlignment(Qt.AlignCenter)
+        label_super = QLabel()  # todo 更换作者信息
+        label_super.setText(&quot;&lt;a href='https://blog.csdn.net/ECHOSON'&gt;作者：肆十二&lt;/a&gt;&quot;)
+        label_super.setFont(QFont('楷体', 16))
+        label_super.setOpenExternalLinks(True)
+        label_super.setAlignment(Qt.AlignRight)
+        about_layout.addWidget(about_title)
+        about_layout.addStretch()
+        about_layout.addWidget(about_img)
+        about_layout.addWidget(self.model_label)
+        about_layout.addStretch()
+        about_layout.addWidget(change_model_button)
+        about_layout.addWidget(record_button)
+        about_layout.addWidget(label_super)
+        about_widget.setLayout(about_layout)
+        self.left_img.setAlignment(Qt.AlignCenter)
+
+        self.addTab(about_widget, '主页')
+        self.addTab(img_detection_widget, '图片检测')
+        self.addTab(vid_detection_widget, '视频检测')
+
+        self.setTabIcon(0, QIcon(ICON_IMAGE))
+        self.setTabIcon(1, QIcon(ICON_IMAGE))
+        self.setTabIcon(2, QIcon(ICON_IMAGE))
+</code></pre>
+<p>我们在代码的这个位置可以更换这个系统的默认标题和默认的logo图像。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/d20944634c4d4b396161a73a3a133747.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818144216340"
+	
+	
+></p>
+<p>以及在这个位置可以更换为你自己的模型。</p>
+<p><img src="https://i-blog.csdnimg.cn/blog_migrate/e93bb183c872ca3a654344fb35450458.png"
+	
+	
+	
+	loading="lazy"
+	
+		alt="image-20240818144234499"
+	
+	
+></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under DYS</span>
+    </section>
+    </footer>
+
+
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "hugo-theme-stack" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+        2024 但月森-DYS
+    </section>
+    
+    <section class="powerby">
+        
+            Hard work is a talent! <br/>
+        使用 <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> 构建 <br />
+        主题 <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.26.0">Stack</a></b> 由 <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a> 设计
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>
